@@ -1,0 +1,19 @@
+{
+  "name": "geo-ip-feeder",
+  "version": "1.0.0",
+  "description": "Package to get GeoIP feed from Github repositories",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/c0d3hsh3lf/geo-ip-feeder.git"
+  },
+  "author": "Sumit Shrivastava",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/c0d3hsh3lf/geo-ip-feeder/issues"
+  },
+  "homepage": "https://github.com/c0d3hsh3lf/geo-ip-feeder#readme"
+}
