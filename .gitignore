@@ -132,3 +132,4 @@ dist
 # Project spefici ignores
 .bin
 *.bin
+data/

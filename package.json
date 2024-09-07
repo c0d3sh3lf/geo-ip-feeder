@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Package to get GeoIP feed from Github repositories",
   "main": "index.js",
+  "type": "module",
   "scripts": {
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -17,6 +19,10 @@
   },
   "homepage": "https://github.com/c0d3hsh3lf/geo-ip-feeder#readme",
   "dependencies": {
-    "geo-ip-feeder": "file:"
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.4.5",
+    "geo-ip-feeder": "file:",
+    "mongodb": "^6.8.1",
+    "node-fetch": "^3.3.2"
   }
 }
