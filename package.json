@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/c0d3hsh3lf/geo-ip-feeder/issues"
   },
-  "homepage": "https://github.com/c0d3hsh3lf/geo-ip-feeder#readme"
+  "homepage": "https://github.com/c0d3hsh3lf/geo-ip-feeder#readme",
+  "dependencies": {
+    "geo-ip-feeder": "file:"
+  }
 }
