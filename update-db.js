@@ -12,7 +12,7 @@ const asnIPv4CountryCSVFile = join(destinationFolder, 'asnIPv4country.csv')
 const asnIPv6CountryCSVFile = join(destinationFolder, 'asnIPv6country.csv')
 const asnIPv4CSVFile = join(destinationFolder, 'asnIPv4.csv')
 const asnIPv6CSVFile = join(destinationFolder, 'asnIPv6.csv')
-const ISO3166CountryCSVFile = join(destinationFolder, 'ISO3166Country.csv')
+let ISO3166Countries = []
 
 async function downloadGitRepo() {
   const asnIPv4Country = process.env.ASN_IPV4_CONT
@@ -49,7 +49,7 @@ async function downloadGitRepo() {
     writeFileSync(asnIPv4CountryLocalPath, asnIPv4CountryCSVData)
     console.log(`IPv4 Country Data written to ${asnIPv4CountryLocalPath}`)
   } catch (err) {
-    console.error(`Failed to download CSV file`, err)
+    console.error(`Failed to download CSV file ${asnIPv4CountryCSVFile}`, err)
   }
 
   try {
@@ -67,7 +67,7 @@ async function downloadGitRepo() {
     writeFileSync(asnIPv6CountryLocalPath, asnIPv6CountryCSVData)
     console.log(`IPv6 Country Data written to ${asnIPv6CountryLocalPath}`)
   } catch (err) {
-    console.error(`Failed to download CSV file`, err)
+    console.error(`Failed to download CSV file ${asnIPv6CountryCSVFile}`, err)
   }
 
   try {
@@ -85,7 +85,7 @@ async function downloadGitRepo() {
     writeFileSync(asnIPv4LocalPath, asnIPv4CSVData)
     console.log(`IPv4 Data written to ${asnIPv4LocalPath}`)
   } catch (err) {
-    console.error(`Failed to download CSV file`, err)
+    console.error(`Failed to download CSV file ${asnIPv4CSVFile}`, err)
   }
 
   try {
@@ -103,25 +103,23 @@ async function downloadGitRepo() {
     writeFileSync(asnIPv6LocalPath, asnIPv6CSVData)
     console.log(`IPv6 Data written to ${asnIPv6LocalPath}`)
   } catch (err) {
-    console.error(`Failed to download CSV file`, err)
+    console.error(`Failed to download CSV file ${asnIPv6CSVFile}`, err)
   }
 
   try {
     //Download ISO 3188 Country Data
-    console.log(`Fetching ASN IPv6 Data`)
+    console.log(`Fetching ISO 3166-2 Country Data`)
     const responseISO3166Country = await fetch(ISO3166Country)
     if (!responseISO3166Country.ok) {
       throw new Error(
         `Failed to fetch ${ISO3166Country}: ${responseISO3166Country.status} ${responseISO3166Country.statusText}`
       )
     }
-    const ISO3166CountryCSVData = await responseISO3166Country.text()
-    const ISO3166CountryLocalPath = resolve(ISO3166CountryCSVFile)
-
-    writeFileSync(ISO3166CountryLocalPath, ISO3166CountryCSVData)
-    console.log(`IPv6 Data written to ${ISO3166CountryLocalPath}`)
+    const ISO3166CountryJSONData = await responseISO3166Country.text()
+    ISO3166Countries = JSON.parse(ISO3166CountryJSONData)
+    console.log(`Fetched ISO 3166-2 Country Data`)
   } catch (err) {
-    console.error(`Failed to download CSV file`, err)
+    console.error(`Failed to download JSON file`, err)
   }
 }
 
@@ -139,39 +137,59 @@ async function updateMongo() {
     const ipv4Collection = db.collection(ipv4CollectionName)
     const ipv6Collection = db.collection(ipv6CollectionName)
 
-    const countries = []
+    //read IPv4 file
+    const ASNIPV4CSVData = readFileSync(asnIPv4CSVFile, 'utf-8')
+    const ASNIPV4Stream = Readable.from(ASNIPV4CSVData)
 
-    //read country csv file
-    const iso3166CountryCSVData = readFileSync(ISO3166CountryCSVFile, 'utf-8')
-    const iso3166CountryStream = Readable.from(iso3166CountryCSVData)
-    iso3166CountryStream
-      .pipe(csvParser())
-      .on('data', (row) => {
-        const country = {
-          name: row['name'],
-          alpha2: row['alpha-2'],
-          alpha3: row['alpha-3'],
-          countryCode: row['country-code'],
-          iso3166_2: row['iso_3166-2'],
-          region: row['region'],
-          subRegion: row['sub-region'],
-          intermediateRegion: row['intermediate-region'],
-          regionCode: row['region-code'],
-          subRegionCode: row['sub-region-code'],
-          intermediateRegionCode: row['intermediate-region-code'],
+    let count = 0
+
+    ASNIPV4Stream.pipe(
+      csvParser({
+        headers: false,
+      })
+    )
+      .on('data', async (row) => {
+        const ip_range_start = row[0]
+        const ip_range_end = row[1]
+        const autonomous_system_number = row[2]
+        const autonomous_system_organization = row[3]
+
+        try {
+          console.log(`Processing item ${count + 1}`)
+          const existingDocument = await ipv4Collection.findOne({
+            ip_range_start: ip_range_start,
+            ip_range_end: ip_range_end,
+          })
+          if (existingDocument) {
+            // Update the existing document
+            await ipv4Collection.updateOne(
+              { ip_range_start: ip_range_start, ip_range_end: ip_range_end },
+              {
+                $set: {
+                  autonomous_system_number: autonomous_system_number,
+                  autonomous_system_organization:
+                    autonomous_system_organization,
+                },
+              }
+            )
+          } else {
+            await ipv4Collection.insertOne({
+              ip_range_start: ip_range_start,
+              ip_range_end: ip_range_end,
+              autonomous_system_number: autonomous_system_number,
+              autonomous_system_organization: autonomous_system_organization,
+            })
+          }
+        } catch (err) {
+          console.error(`Unable to add the data, ${err}`)
+        } finally {
+          count = count + 1
         }
-        countries.push(country)
       })
       .on('end', () => {
-        console.log(countries.find((country) => country.alpha2 === 'AE'))
-        iso3166CountryStream.destroy()
+        console.log(`${asnIPv4CSVFile} processing completed`)
+        client.close()
       })
-      .on('error', (err) => {
-        console.log(`Error occurred ${err.message}`)
-        iso3166CountryStream.destroy()
-      })
-
-    //read IPv4 file
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err)
   } finally {
@@ -179,5 +197,5 @@ async function updateMongo() {
   }
 }
 
-// await downloadGitRepo()
+await downloadGitRepo()
 await updateMongo()
